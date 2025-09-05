@@ -3,15 +3,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Mic, MicOff, Settings, AlertCircle, Volume2, Info } from 'lucide-react';
 import { ASRStatus, ASRConfig, ASRComponentProps } from '@/types/asr';
-import { getWebSocketUrl, parseRecognitionResult, checkWebSocketSupport, checkAudioSupport } from '@/utils/asr';
+import { getWebSocketUrl, parseRecognitionResult, checkWebSocketSupport, checkAudioSupport, AudioRecorder } from '@/utils/asr';
 import styles from './ASRComponent.module.css';
 
-// 声明全局变量以支持RecorderManager
-declare global {
-  interface Window {
-    RecorderManager?: any;
-  }
-}
+// 移除对外部RecorderManager的依赖
 
 const ASRComponent: React.FC<ASRComponentProps> = ({
   config,
@@ -28,7 +23,7 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
   const [localConfig, setLocalConfig] = useState<ASRConfig>(config);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const recorderRef = useRef<any>(null);
+  const recorderRef = useRef<AudioRecorder | null>(null);
   const keepAliveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,39 +82,36 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
 
   // 初始化录音器
   const initRecorder = useCallback(() => {
-    if (!window.RecorderManager) {
-      handleError('RecorderManager 未加载，请检查ASR脚本是否正确引入。请刷新页面重试。');
-      return null;
-    }
-
     try {
-      console.log('初始化RecorderManager...');
-      const recorder = new window.RecorderManager();
-      
-      recorder.onStart = () => {
-        changeStatus('OPEN');
-      };
-
-      recorder.onFrameRecorded = ({ isLastFrame, frameBuffer }: any) => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(new Int8Array(frameBuffer));
-          if (isLastFrame) {
+      console.log('初始化AudioRecorder...');
+      const recorder = new AudioRecorder({
+        sampleRate: localConfig.sampleRate || 16000,
+        frameSize: localConfig.frameSize || 1024,
+        onStart: () => {
+          changeStatus('OPEN');
+        },
+        onData: (data: ArrayBuffer) => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(data);
+          }
+        },
+        onStop: () => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send('{"end": true}');
             changeStatus('CLOSING');
           }
+        },
+        onError: (error: string) => {
+          handleError(`录音错误: ${error}`);
         }
-      };
-
-      recorder.onStop = () => {
-        // 录音停止处理
-      };
+      });
 
       return recorder;
     } catch (err) {
       handleError(`初始化录音器失败: ${err}`);
       return null;
     }
-  }, [changeStatus, handleError]);
+  }, [changeStatus, handleError, localConfig.sampleRate, localConfig.frameSize]);
 
   // 自动重连的引用，避免循环依赖
   const attemptReconnectRef = useRef<() => void>();
@@ -151,7 +143,7 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
       // 成功连接时重置重连计数
       reconnectAttempts.current = 0;
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         console.log('WebSocket连接已建立');
         
         // 设置连接超时检测（30秒后如果还没有开始录音则认为连接异常）
@@ -165,10 +157,7 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
         const recorder = initRecorder();
         if (recorder) {
           recorderRef.current = recorder;
-          recorder.start({
-            sampleRate: localConfig.sampleRate || 16000,
-            frameSize: localConfig.frameSize || 1280,
-          });
+          await recorder.start();
           
           // 清除连接超时检测
           if (connectionTimeoutRef.current) {
@@ -367,10 +356,21 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
               <label className={styles.configLabel}>帧大小</label>
               <input
                 type="number"
-                value={localConfig.frameSize || 1280}
-                onChange={(e) => setLocalConfig(prev => ({ ...prev, frameSize: parseInt(e.target.value) }))}
+                value={localConfig.frameSize || 1024}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value)) {
+                    setLocalConfig(prev => ({ ...prev, frameSize: value }));
+                  }
+                }}
                 className={styles.configInput}
+                min="256"
+                max="16384"
+                title="必须是 256-16384 之间的 2 的幂次方 (如: 256, 512, 1024, 2048, 4096, 8192, 16384)"
               />
+              <small className="text-xs text-gray-500 mt-1">
+                必须是 2 的幂次方 (256, 512, 1024, 2048, 4096, 8192, 16384)
+              </small>
             </div>
           </div>
         </div>

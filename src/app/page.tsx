@@ -30,12 +30,12 @@ export default function Home() {
   const [isLeftDragging, setIsLeftDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // ASR 配置
+  // ASR 配置 - 请替换为您的实际科大讯飞ASR凭据
   const [asrConfig] = useState<ASRConfig>({
-    appId: '654ddfbc', // 需要配置实际的AppId
-    apiKey: 'aa0b46943a8329b4de56a662341dfd88', // 需要配置实际的ApiKey
+    appId: process.env.NEXT_PUBLIC_XFYUN_APP_ID || '654ddfbc', // 从环境变量获取或使用默认值
+    apiKey: process.env.NEXT_PUBLIC_XFYUN_API_KEY || 'aa0b46943a8329b4de56a662341dfd88', // 从环境变量获取或使用默认值
     sampleRate: 16000,
-    frameSize: 1280
+    frameSize: 1024
   });
 
   useEffect(() => {
