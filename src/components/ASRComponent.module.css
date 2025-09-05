@@ -1,0 +1,134 @@
+/* ASR 组件样式 */
+
+.asrContainer {
+  @apply bg-white rounded-lg shadow-md border border-gray-200 p-6;
+}
+
+.asrHeader {
+  @apply flex items-center justify-between mb-4;
+}
+
+.asrTitle {
+  @apply text-lg font-semibold text-gray-900;
+}
+
+.asrStatus {
+  @apply text-sm px-2 py-1 rounded-full;
+}
+
+.statusUndefined {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.statusConnecting {
+  @apply bg-yellow-100 text-yellow-700;
+}
+
+.statusOpen {
+  @apply bg-green-100 text-green-700;
+}
+
+.statusClosing {
+  @apply bg-orange-100 text-orange-700;
+}
+
+.statusClosed {
+  @apply bg-gray-100 text-gray-600;
+}
+
+.controlSection {
+  @apply flex flex-col items-center space-y-4;
+}
+
+.recordButton {
+  @apply relative flex items-center justify-center w-16 h-16 rounded-full transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-opacity-50;
+}
+
+.recordButtonUndefined,
+.recordButtonClosed {
+  @apply bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-200;
+}
+
+.recordButtonConnecting {
+  @apply bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-200;
+}
+
+.recordButtonOpen {
+  @apply bg-red-500 text-white hover:bg-red-600 focus:ring-red-200 animate-pulse;
+}
+
+.recordButtonClosing {
+  @apply bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-200;
+}
+
+.recordIcon {
+  @apply w-6 h-6;
+}
+
+.recordingIndicator {
+  @apply absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-ping;
+}
+
+.buttonText {
+  @apply text-sm font-medium text-gray-700 text-center;
+}
+
+.resultSection {
+  @apply mt-6;
+}
+
+.resultLabel {
+  @apply text-sm font-medium text-gray-700 mb-2;
+}
+
+.resultText {
+  @apply w-full min-h-[120px] p-4 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.resultEmpty {
+  @apply text-gray-400 italic;
+}
+
+.errorMessage {
+  @apply mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3;
+}
+
+.configSection {
+  @apply mt-4 p-4 bg-gray-50 rounded-lg;
+}
+
+.configTitle {
+  @apply text-sm font-medium text-gray-700 mb-2;
+}
+
+.configGrid {
+  @apply grid grid-cols-2 gap-4;
+}
+
+.configItem {
+  @apply flex flex-col;
+}
+
+.configLabel {
+  @apply text-xs text-gray-600 mb-1;
+}
+
+.configInput {
+  @apply text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500;
+}
+
+.waveform {
+  @apply flex items-center justify-center space-x-1 h-8;
+}
+
+.waveBar {
+  @apply w-1 bg-blue-500 rounded-full animate-pulse;
+}
+
+.waveBar:nth-child(1) { animation-delay: 0ms; height: 8px; }
+.waveBar:nth-child(2) { animation-delay: 100ms; height: 16px; }
+.waveBar:nth-child(3) { animation-delay: 200ms; height: 12px; }
+.waveBar:nth-child(4) { animation-delay: 300ms; height: 20px; }
+.waveBar:nth-child(5) { animation-delay: 400ms; height: 14px; }
+.waveBar:nth-child(6) { animation-delay: 500ms; height: 10px; }
+.waveBar:nth-child(7) { animation-delay: 600ms; height: 18px; }
