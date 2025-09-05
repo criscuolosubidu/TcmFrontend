@@ -56,34 +56,37 @@ export class PrescriptionFileLoader {
             source: 'public',
             success: true
           });
+        } else if (response.status === 404) {
+          // 文件不存在，不记录为错误，静默跳过
+          console.log(`跳过不存在的文件: /data/${filename}`);
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (error) {
-        this.loadedSources.push({
-          filename,
-          recordsCount: 0,
-          loadedAt: new Date(),
-          source: 'public',
-          success: false,
-          error: error instanceof Error ? error.message : String(error)
-        });
+        // 只记录真正的错误，不记录404
+        if (error instanceof Error && !error.message.includes('Failed to fetch')) {
+          this.loadedSources.push({
+            filename,
+            recordsCount: 0,
+            loadedAt: new Date(),
+            source: 'public',
+            success: false,
+            error: error.message
+          });
+        }
       }
     }
   }
 
   private async loadFromSrcDirectory(allRecords: PrescriptionRecord[]) {
-    // 预定义的src目录文件列表
-    const srcFiles = [
-      'prescriptions.json',
-      'prescriptions_2024.json',
-      'prescriptions_backup.json',
-      'prescriptions_archive.json',
-      // 添加用户实际的文件名
+    // 只尝试加载实际存在的文件
+    const existingSrcFiles = [
       'prescriptions_result_1号方.json',
       'prescriptions_result_2号方.json',
       'prescriptions_result_3号方.json',
     ];
 
-    for (const filename of srcFiles) {
+    for (const filename of existingSrcFiles) {
       try {
         const importedModule = await import(`@/data/${filename}`);
         const data: any = importedModule.default;
@@ -98,14 +101,20 @@ export class PrescriptionFileLoader {
           success: true
         });
       } catch (error) {
-        this.loadedSources.push({
-          filename,
-          recordsCount: 0,
-          loadedAt: new Date(),
-          source: 'src',
-          success: false,
-          error: error instanceof Error ? error.message : String(error)
-        });
+        // 只记录真正的错误，跳过模块不存在的情况
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('Cannot resolve module') && !errorMessage.includes('Module not found')) {
+          this.loadedSources.push({
+            filename,
+            recordsCount: 0,
+            loadedAt: new Date(),
+            source: 'src',
+            success: false,
+            error: errorMessage
+          });
+        } else {
+          console.log(`跳过不存在的模块: @/data/${filename}`);
+        }
       }
     }
   }

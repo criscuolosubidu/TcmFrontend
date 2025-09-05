@@ -22,6 +22,8 @@ export default function Home() {
   const [showDataSources, setShowDataSources] = useState(false);
   const [showASR, setShowASR] = useState(false);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
   
   // 拖拽相关状态
   const [leftPanelWidth, setLeftPanelWidth] = useState(320); // 默认宽度
@@ -50,6 +52,12 @@ export default function Home() {
         // 打印加载信息
         console.log(`成功加载 ${loadedRecords.length} 条处方记录`);
         console.log(`数据源: ${sources.filter(s => s.success).length} 个成功，${sources.filter(s => !s.success).length} 个失败`);
+        
+        // 显示成功通知
+        if (loadedRecords.length > 0) {
+          setGlobalSuccess(`成功加载 ${loadedRecords.length} 条处方记录`);
+          setTimeout(() => setGlobalSuccess(null), 3000);
+        }
       } catch (error) {
         console.error('Failed to load prescription data:', error);
         setRecords([]);
@@ -74,7 +82,9 @@ export default function Home() {
 
   const handleASRError = useCallback((error: string) => {
     console.error('ASR错误:', error);
-    // 可以在这里显示错误提示
+    setGlobalError(`语音识别错误: ${error}`);
+    // 5秒后自动清除错误提示
+    setTimeout(() => setGlobalError(null), 5000);
   }, []);
 
   const handleASRStatusChange = useCallback((status: string) => {
@@ -422,6 +432,47 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Global Notifications */}
+      {globalError && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-lg">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-800">错误</p>
+                <p className="text-sm text-red-700">{globalError}</p>
+              </div>
+              <button
+                onClick={() => setGlobalError(null)}
+                className="ml-2 text-red-500 hover:text-red-700"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {globalSuccess && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-800">成功</p>
+                <p className="text-sm text-green-700">{globalSuccess}</p>
+              </div>
+              <button
+                onClick={() => setGlobalSuccess(null)}
+                className="ml-2 text-green-500 hover:text-green-700"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-2 z-10">

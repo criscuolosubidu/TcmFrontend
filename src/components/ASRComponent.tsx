@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Mic, MicOff, Settings, AlertCircle, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Settings, AlertCircle, Volume2, Info } from 'lucide-react';
 import { ASRStatus, ASRConfig, ASRComponentProps } from '@/types/asr';
 import { getWebSocketUrl, parseRecognitionResult, checkWebSocketSupport, checkAudioSupport } from '@/utils/asr';
 import styles from './ASRComponent.module.css';
@@ -29,6 +29,11 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
 
   const wsRef = useRef<WebSocket | null>(null);
   const recorderRef = useRef<any>(null);
+  const keepAliveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 3;
 
   // 状态改变处理
   const changeStatus = useCallback((newStatus: ASRStatus) => {
@@ -36,12 +41,29 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
     onStatusChange?.(newStatus);
   }, [onStatusChange]);
 
+  // 清理定时器
+  const clearTimers = useCallback(() => {
+    if (keepAliveIntervalRef.current) {
+      clearInterval(keepAliveIntervalRef.current);
+      keepAliveIntervalRef.current = null;
+    }
+    if (connectionTimeoutRef.current) {
+      clearTimeout(connectionTimeoutRef.current);
+      connectionTimeoutRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  }, []);
+
   // 错误处理
   const handleError = useCallback((errorMsg: string) => {
+    clearTimers();
     setError(errorMsg);
     onError?.(errorMsg);
     changeStatus('CLOSED');
-  }, [onError, changeStatus]);
+  }, [onError, changeStatus, clearTimers]);
 
   // 结果处理
   const handleResult = useCallback((data: string) => {
@@ -66,11 +88,12 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
   // 初始化录音器
   const initRecorder = useCallback(() => {
     if (!window.RecorderManager) {
-      handleError('RecorderManager 未加载，请确保已引入相关脚本文件');
+      handleError('RecorderManager 未加载，请检查ASR脚本是否正确引入。请刷新页面重试。');
       return null;
     }
 
     try {
+      console.log('初始化RecorderManager...');
       const recorder = new window.RecorderManager();
       
       recorder.onStart = () => {
@@ -98,6 +121,9 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
     }
   }, [changeStatus, handleError]);
 
+  // 自动重连的引用，避免循环依赖
+  const attemptReconnectRef = useRef<() => void>();
+
   // 连接WebSocket
   const connectWebSocket = useCallback(() => {
     if (!checkWebSocketSupport()) {
@@ -121,8 +147,20 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
       
       changeStatus('CONNECTING');
       setError(null);
+      
+      // 成功连接时重置重连计数
+      reconnectAttempts.current = 0;
 
       ws.onopen = () => {
+        console.log('WebSocket连接已建立');
+        
+        // 设置连接超时检测（30秒后如果还没有开始录音则认为连接异常）
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (status === 'CONNECTING') {
+            handleError('连接超时，请检查麦克风权限并重试');
+          }
+        }, 30000);
+        
         // 开始录音
         const recorder = initRecorder();
         if (recorder) {
@@ -131,22 +169,57 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
             sampleRate: localConfig.sampleRate || 16000,
             frameSize: localConfig.frameSize || 1280,
           });
+          
+          // 清除连接超时检测
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          
+          // 启动保活机制 - 每20秒发送一个心跳包
+          keepAliveIntervalRef.current = setInterval(() => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              console.log('发送心跳包保持连接');
+              // 发送一个小的静音帧作为心跳
+              const silentFrame = new Int8Array(160); // 10ms的静音帧
+              wsRef.current.send(silentFrame);
+            }
+          }, 20000);
         }
       };
 
       ws.onmessage = (event) => {
-        handleResult(event.data);
+        try {
+          handleResult(event.data);
+        } catch (error) {
+          console.error('处理ASR消息失败:', error);
+          handleError(`处理识别结果失败: ${error instanceof Error ? error.message : String(error)}`);
+        }
       };
 
       ws.onerror = (event) => {
         console.error('WebSocket错误:', event);
-        handleError('WebSocket连接错误');
+        const errorMsg = event instanceof ErrorEvent ? event.message : 'WebSocket连接错误';
+        
+        // 如果是连接错误且还有重连机会，尝试重连
+        if (reconnectAttempts.current < maxReconnectAttempts && status !== 'CLOSING') {
+          attemptReconnectRef.current?.();
+        } else {
+          handleError(errorMsg);
+        }
+        
         if (recorderRef.current) {
-          recorderRef.current.stop();
+          try {
+            recorderRef.current.stop();
+          } catch (stopError) {
+            console.error('停止录音器失败:', stopError);
+          }
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log('WebSocket连接已关闭', event.code, event.reason);
+        clearTimers();
         if (recorderRef.current) {
           recorderRef.current.stop();
         }
@@ -159,12 +232,31 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
     }
   }, [localConfig, changeStatus, handleError, initRecorder, handleResult]);
 
+  // 实现自动重连函数
+  attemptReconnectRef.current = () => {
+    if (reconnectAttempts.current < maxReconnectAttempts) {
+      reconnectAttempts.current++;
+      setError(`连接中断，正在尝试重连 (${reconnectAttempts.current}/${maxReconnectAttempts})...`);
+      
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log(`尝试重连 ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+        connectWebSocket();
+      }, 2000 * reconnectAttempts.current); // 递增延迟重连
+    } else {
+      handleError('连接失败，已达到最大重连次数。请检查网络连接和配置后手动重试。');
+    }
+  };
+
   // 停止录音
   const stopRecording = useCallback(() => {
+    clearTimers();
     if (recorderRef.current) {
       recorderRef.current.stop();
     }
-  }, []);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.close();
+    }
+  }, [clearTimers]);
 
   // 按钮点击处理
   const handleButtonClick = useCallback(() => {
@@ -206,6 +298,7 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
   // 组件卸载时清理
   useEffect(() => {
     return () => {
+      clearTimers();
       if (wsRef.current) {
         wsRef.current.close();
       }
@@ -213,7 +306,7 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
         recorderRef.current.stop();
       }
     };
-  }, []);
+  }, [clearTimers]);
 
   const displayText = resultText + tempText;
 
@@ -352,6 +445,16 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
           <div className="flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 开发者信息提示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+          <div className="flex items-center space-x-1">
+            <Info className="w-3 h-3 flex-shrink-0" />
+            <span>开发提示: ScriptProcessorNode已废弃警告来自录音库，不影响功能使用</span>
           </div>
         </div>
       )}
