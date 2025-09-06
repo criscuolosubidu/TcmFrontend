@@ -394,30 +394,32 @@ export function getWebSocketUrl(config: ASRConfig): string {
  * @param data 原始结果数据
  * @returns 解析后的文本
  */
-export function parseRecognitionResult(data: string): { text: string; isFinal: boolean } {
+export const parseRecognitionResult = (data: string): { text: string; isFinal: boolean } => {
     try {
-        const result = JSON.parse(data);
+        const jsonData = JSON.parse(data);
 
         // 处理握手成功
-        if (result.action === 'started') {
-            console.log('ASR握手成功:', result);
-            return {text: '', isFinal: false};
+        if (jsonData.action === "started") {
+            console.log("握手成功");
+            return { text: '', isFinal: false };
         }
 
         // 处理识别结果
-        if (result.action === 'result') {
-            const resultData = JSON.parse(result.data);
-            console.log('识别数据:', resultData);
+        if (jsonData.action === "result") {
+            const resultData = JSON.parse(jsonData.data);
+            console.log('原始识别数据:', resultData);
 
-            let resultTextTemp = '';
-            // 按照官方示例解析结果
+            // 拼接识别文本
+            let resultText = '';
             if (resultData.cn && resultData.cn.st && resultData.cn.st.rt) {
-                resultData.cn.st.rt.forEach((j: any) => {
-                    if (j.ws) {
-                        j.ws.forEach((k: any) => {
-                            if (k.cw) {
-                                k.cw.forEach((l: any) => {
-                                    resultTextTemp += l.w;
+                resultData.cn.st.rt.forEach((rtItem: any) => {
+                    if (rtItem.ws) {
+                        rtItem.ws.forEach((wsItem: any) => {
+                            if (wsItem.cw) {
+                                wsItem.cw.forEach((cwItem: any) => {
+                                    if (cwItem.w) {
+                                        resultText += cwItem.w;
+                                    }
                                 });
                             }
                         });
@@ -425,26 +427,39 @@ export function parseRecognitionResult(data: string): { text: string; isFinal: b
                 });
             }
 
-            const isFinal = resultData.cn && resultData.cn.st && resultData.cn.st.type === 0;
+            // 判断是否为最终结果
+            // type === 0 表示最终识别结果（句子结束）
+            // type === 1 表示中间识别结果（实时反馈）
+            const isFinal = resultData.cn?.st?.type == 0;
+
+            console.log('解析结果:', {
+                text: resultText,
+                isFinal,
+                type: resultData.cn?.st?.type,
+                seg_id: resultData.seg_id  // 句子序号，用于调试
+            });
 
             return {
-                text: resultTextTemp,
+                text: resultText,
                 isFinal: isFinal
             };
         }
 
         // 处理错误
-        if (result.action === 'error') {
-            console.error('ASR服务错误:', result);
-            throw new Error(result.desc || '识别服务错误');
+        if (jsonData.action === "error") {
+            console.error("识别服务错误:", jsonData);
+            throw new Error(jsonData.desc || "识别服务错误");
         }
 
-        return {text: '', isFinal: false};
+        // 其他情况返回空结果
+        return { text: '', isFinal: false };
+
     } catch (error) {
-        console.error('解析识别结果失败:', error);
-        throw error;
+        console.error('解析识别结果失败:', error, 'data:', data);
+        // 如果解析失败，返回空结果避免程序崩溃
+        return { text: '', isFinal: false };
     }
-}
+};
 
 /**
  * 检查浏览器是否支持WebSocket
