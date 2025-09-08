@@ -327,33 +327,6 @@ function hmacSha1(message: string, key: string): CryptoJSWordArray {
  * @param config ASR配置
  * @returns WebSocket URL
  */
-// export function getWebSocketUrl(config: ASRConfig): string {
-//   const baseUrl = 'wss://rtasr.xfyun.cn/v1/ws';
-//
-//   // 生成时间戳
-//   // const ts = Math.floor(Date.now() / 1000).toString();
-//     const ts = '1757094020';
-//   // 按照科大讯飞官方示例: 先MD5，再HMAC-SHA1，最后Base64
-//   const signa = hex_md5(config.appId + ts);
-//   const signatureSha = hmacSha1(signa, config.apiKey);
-//   const signature = stringifyBase64(signatureSha);
-//   const encodedSignature = encodeURIComponent(signature);
-//
-//   console.log(baseUrl, config.appId, config.apiKey, ts);
-//   console.log(signa, signatureSha, signature);
-//   console.log(encodedSignature);
-//
-//   console.log('ASR签名调试信息（基于官方示例）:');
-//   console.log('AppId:', config.appId);
-//   console.log('ApiKey:', config.apiKey.substring(0, 8) + '...');
-//   console.log('时间戳:', ts);
-//   console.log('MD5结果:', signa);
-//   console.log('签名(Base64):', signature);
-//   console.log('完整URL:', `${baseUrl}?appid=${config.appId}&ts=${ts}&signa=${encodedSignature}`);
-//
-//   // 构建完整URL
-//   return `${baseUrl}?appid=${config.appId}&ts=${ts}&signa=${encodedSignature}`;
-// }
 export function getWebSocketUrl(config: ASRConfig): string {
     const baseUrl = 'wss://rtasr.xfyun.cn/v1/ws';
 
@@ -373,17 +346,15 @@ export function getWebSocketUrl(config: ASRConfig): string {
     // 4. URL-encode the final signature
     const encodedSignature = encodeURIComponent(signature);
 
-    console.log(baseUrl, config.appId, config.apiKey, ts);
-    console.log(signa, signatureSha, signature);
-    console.log(encodedSignature);
-
-    // (Optional) For debugging, you can log the intermediate values
-    console.log('Using crypto-js library for signing:');
-    console.log('AppId:', config.appId);
-    console.log('Timestamp:', ts);
-    console.log('MD5 Result (signa):', signa);
-    console.log('Signature (Base64):', signature);
-    console.log('Encoded Signature:', encodedSignature);
+    // console.log(baseUrl, config.appId, config.apiKey, ts);
+    // console.log(signa, signatureSha, signature);
+    // console.log(encodedSignature);
+    // console.log('Using crypto-js library for signing:');
+    // console.log('AppId:', config.appId);
+    // console.log('Timestamp:', ts);
+    // console.log('MD5 Result (signa):', signa);
+    // console.log('Signature (Base64):', signature);
+    // console.log('Encoded Signature:', encodedSignature);
 
     // 构建完整URL
     return `${baseUrl}?appid=${config.appId}&ts=${ts}&signa=${encodedSignature}`;
