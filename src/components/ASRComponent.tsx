@@ -119,8 +119,6 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
         }
     }, [onResult, resultText, tempText]);
 
-    // **优化点 1**: 此 Effect 确保了每次文本更新时，文本框都会自动滚动到底部。
-    // 这已经是您所期望的滚动行为。
     useEffect(() => {
         scrollToBottom();
     }, [resultText, tempText, scrollToBottom]);
@@ -303,8 +301,6 @@ const ASRComponent: React.FC<ASRComponentProps> = ({
         } else if (status === 'CONNECTING' || status === 'OPEN') {
             stopRecording();
         }
-        // **优化点 2**: 确保所有在回调函数中使用的、可能变化的外部变量都包含在依赖项数组中。
-        // 此处 connectWebSocket 和 stopRecording 都是 memoized callbacks，添加它们是安全的。
     }, [status, connectWebSocket, stopRecording]);
 
 
