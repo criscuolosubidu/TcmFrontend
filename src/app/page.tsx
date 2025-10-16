@@ -4,13 +4,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PatientList from '@/components/PatientList';
 import PatientCard from '@/components/PatientCard';
 import ASRComponent from '@/components/ASRComponent';
+import QRScannerComponent from '@/components/QRScannerComponent';
 import { PrescriptionRecord } from '@/types';
 import { ASRConfig } from '@/types/asr';
 import { 
   Activity, TrendingUp, Clock, CheckCircle, 
   FileText, Stethoscope, Users, AlertCircle,
   BarChart3, Settings, RefreshCw, Database, Info,
-  GripVertical, Mic
+  GripVertical, Mic, QrCode
 } from 'lucide-react';
 import { PrescriptionFileLoader, DataSource } from '@/utils/fileDiscovery';
 
@@ -21,6 +22,7 @@ export default function Home() {
   const [showStats, setShowStats] = useState(false);
   const [showDataSources, setShowDataSources] = useState(false);
   const [showASR, setShowASR] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [globalSuccess, setGlobalSuccess] = useState<string | null>(null);
@@ -92,6 +94,84 @@ export default function Home() {
   const handleASRStatusChange = useCallback((status: string) => {
     console.log('ASR状态变更:', status);
   }, []);
+
+  // 二维码扫描处理函数
+  const handleQRScanSuccess = useCallback((decodedText: string, decodedResult: any) => {
+    console.log('二维码扫描成功:', decodedText);
+    
+    try {
+      // 尝试解析JSON格式的病人信息
+      const patientInfo = JSON.parse(decodedText);
+      
+      // 显示成功消息
+      const displayName = patientInfo.姓名 || patientInfo.name || patientInfo.病历号 || patientInfo.id || '未知';
+      setGlobalSuccess(`成功扫描病人信息: ${displayName}`);
+      setTimeout(() => setGlobalSuccess(null), 3000);
+      
+      // 尝试在现有记录中查找该病人（根据诊断、主诉或其他关键信息）
+      const searchKeys = [
+        patientInfo.姓名,
+        patientInfo.name,
+        patientInfo.病历号,
+        patientInfo.id,
+        patientInfo.诊断,
+        patientInfo.diagnosis
+      ].filter(Boolean);
+      
+      if (searchKeys.length > 0) {
+        const foundIndex = records.findIndex(record => {
+          const searchableFields = [
+            record.输入诊断,
+            record.原始记录?.原始病历?.诊断,
+            record.原始记录?.原始病历?.主诉,
+            record.输入病历
+          ].filter(Boolean).join(' ');
+          
+          return searchKeys.some(key => 
+            searchableFields.includes(key as string)
+          );
+        });
+        
+        if (foundIndex !== -1) {
+          setSelectedIndex(foundIndex);
+          setGlobalSuccess(`已找到病人记录，跳转到第 ${foundIndex + 1} 条`);
+          setTimeout(() => setGlobalSuccess(null), 3000);
+        } else {
+          setGlobalError(`未找到匹配的病人记录`);
+          setTimeout(() => setGlobalError(null), 5000);
+        }
+      }
+      
+      console.log('解析的病人信息:', patientInfo);
+    } catch (error) {
+      // 如果不是JSON格式，直接显示原始文本并尝试搜索
+      setGlobalSuccess(`扫描到内容，正在搜索...`);
+      
+      // 尝试在记录中搜索这个文本
+      const foundIndex = records.findIndex(record => {
+        const searchableFields = [
+          record.输入诊断,
+          record.原始记录?.原始病历?.诊断,
+          record.原始记录?.原始病历?.主诉,
+          record.输入病历
+        ].filter(Boolean).join(' ');
+        
+        return searchableFields.includes(decodedText);
+      });
+      
+      if (foundIndex !== -1) {
+        setSelectedIndex(foundIndex);
+        setGlobalSuccess(`已找到相关记录，跳转到第 ${foundIndex + 1} 条`);
+      } else {
+        setGlobalError(`未找到包含"${decodedText}"的记录`);
+      }
+      
+      setTimeout(() => {
+        setGlobalSuccess(null);
+        setGlobalError(null);
+      }, 5000);
+    }
+  }, [records]);
 
   // 统计信息
   const stats = {
@@ -287,6 +367,14 @@ export default function Home() {
             </div>
             
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowQRScanner(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-colors shadow-sm"
+              >
+                <QrCode className="h-4 w-4" />
+                <span className="text-sm">扫描二维码</span>
+              </button>
+              
               <button
                 onClick={() => setShowStats(!showStats)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
@@ -504,6 +592,14 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <QRScannerComponent
+          onScanSuccess={handleQRScanSuccess}
+          onClose={() => setShowQRScanner(false)}
+        />
       )}
 
       {/* Footer */}
