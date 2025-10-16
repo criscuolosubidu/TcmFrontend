@@ -224,7 +224,7 @@ export default function QRScannerComponent({ onScanSuccess, onClose }: QRScanner
               <strong>使用说明：</strong>
             </p>
             <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc list-inside">
-              <li>点击"开始扫描"按钮启动摄像头</li>
+              <li>点击「开始扫描」按钮启动摄像头</li>
               <li>将二维码对准扫描框，系统会自动识别</li>
               <li>识别成功后会显示二维码内容</li>
               <li>如果有多个摄像头，可以切换选择</li>
