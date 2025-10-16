@@ -270,7 +270,12 @@ export default function Home() {
     if (isLeftDragging || isAsrDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = isLeftDragging ? 'col-resize' : 'row-resize';
+      // 使用自定义黑色光标
+      if (isLeftDragging) {
+        document.body.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cpath d=\'M8 4 L8 16 M12 4 L12 16 M5 10 L8 7 M8 13 L5 10 M12 7 L15 10 M15 10 L12 13\' stroke=\'%23000000\' stroke-width=\'2\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E") 10 10, col-resize';
+      } else {
+        document.body.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\' viewBox=\'0 0 20 20\'%3E%3Cpath d=\'M4 8 L16 8 M4 12 L16 12 M10 5 L7 8 M13 8 L10 5 M7 12 L10 15 M10 15 L13 12\' stroke=\'%23000000\' stroke-width=\'2\' fill=\'none\' stroke-linecap=\'round\'/%3E%3C/svg%3E") 10 10, row-resize';
+      }
       document.body.style.userSelect = 'none';
       
       return () => {
@@ -297,8 +302,8 @@ export default function Home() {
       <div
         className={`absolute ${
           isVertical 
-            ? `top-0 bottom-0 w-1 ${position === 'left' ? 'right-0' : 'left-0'} cursor-col-resize` 
-            : 'left-0 right-0 h-1 top-0 cursor-row-resize'
+            ? `top-0 bottom-0 w-1 ${position === 'left' ? 'right-0' : 'left-0'} cursor-col-resize-black` 
+            : 'left-0 right-0 h-1 top-0 cursor-row-resize-black'
         } bg-gray-300 hover:bg-blue-500 transition-colors z-10 flex items-center justify-center group`}
         onMouseDown={onMouseDown}
       >

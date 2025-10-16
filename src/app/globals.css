@@ -311,6 +311,17 @@ body {
   }
 }
 
+/* 自定义黑色拖动光标 */
+.cursor-col-resize-black {
+  cursor: col-resize;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M8 4 L8 16 M12 4 L12 16 M5 10 L8 7 M8 13 L5 10 M12 7 L15 10 M15 10 L12 13' stroke='%23000000' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, col-resize;
+}
+
+.cursor-row-resize-black {
+  cursor: row-resize;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M4 8 L16 8 M4 12 L16 12 M10 5 L7 8 M13 8 L10 5 M7 12 L10 15 M10 15 L13 12' stroke='%23000000' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, row-resize;
+}
+
 /* 深色模式支持 */
 @media (prefers-color-scheme: dark) {
   .dark-mode {
