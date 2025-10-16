@@ -28,6 +28,8 @@ export default function Home() {
   // 拖拽相关状态
   const [leftPanelWidth, setLeftPanelWidth] = useState(320); // 默认宽度
   const [isLeftDragging, setIsLeftDragging] = useState(false);
+  const [asrPanelHeight, setAsrPanelHeight] = useState(280); // ASR面板默认高度
+  const [isAsrDragging, setIsAsrDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ASR 配置 - 请替换为您的实际科大讯飞ASR凭据
@@ -153,6 +155,10 @@ export default function Home() {
     setIsLeftDragging(true);
   }, []);
 
+  const handleAsrMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsAsrDragging(true);
+  }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!containerRef.current) return;
@@ -164,18 +170,27 @@ export default function Home() {
       const newWidth = Math.max(240, Math.min(500, mouseX)); // 限制最小240px，最大500px
       setLeftPanelWidth(newWidth);
     }
-  }, [isLeftDragging]);
+    
+    if (isAsrDragging) {
+      const mouseY = e.clientY - containerRect.top;
+      const containerHeight = containerRect.height;
+      // 计算从底部开始的高度
+      const newHeight = Math.max(150, Math.min(600, containerHeight - mouseY)); // 限制最小150px，最大600px
+      setAsrPanelHeight(newHeight);
+    }
+  }, [isLeftDragging, isAsrDragging]);
 
   const handleMouseUp = useCallback(() => {
     setIsLeftDragging(false);
+    setIsAsrDragging(false);
   }, []);
 
   // 添加全局鼠标事件监听
   useEffect(() => {
-    if (isLeftDragging) {
+    if (isLeftDragging || isAsrDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
+      document.body.style.cursor = isLeftDragging ? 'col-resize' : 'row-resize';
       document.body.style.userSelect = 'none';
       
       return () => {
@@ -185,7 +200,7 @@ export default function Home() {
         document.body.style.userSelect = '';
       };
     }
-  }, [isLeftDragging, handleMouseMove, handleMouseUp]);
+  }, [isLeftDragging, isAsrDragging, handleMouseMove, handleMouseUp]);
 
   // 拖拽手柄组件
   const DragHandle = ({ 
@@ -193,18 +208,29 @@ export default function Home() {
     position 
   }: { 
     onMouseDown: (e: React.MouseEvent) => void;
-    position: 'left' | 'right';
-  }) => (
-    <div
-      className={`absolute top-0 bottom-0 w-1 bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors z-10 flex items-center justify-center group ${
-        position === 'left' ? 'right-0' : 'left-0'
-      }`}
-      onMouseDown={onMouseDown}
-    >
-      <div className="absolute inset-0 w-4 -mx-1.5" /> {/* 扩大点击区域 */}
-      <GripVertical className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100" />
-    </div>
-  );
+    position: 'left' | 'right' | 'top';
+  }) => {
+    const isVertical = position === 'left' || position === 'right';
+    const isHorizontal = position === 'top';
+    
+    return (
+      <div
+        className={`absolute ${
+          isVertical 
+            ? `top-0 bottom-0 w-1 ${position === 'left' ? 'right-0' : 'left-0'} cursor-col-resize` 
+            : 'left-0 right-0 h-1 top-0 cursor-row-resize'
+        } bg-gray-300 hover:bg-blue-500 transition-colors z-10 flex items-center justify-center group`}
+        onMouseDown={onMouseDown}
+      >
+        <div className={`absolute inset-0 ${isVertical ? 'w-4 -mx-1.5' : 'h-4 -my-1.5'}`} /> {/* 扩大点击区域 */}
+        <GripVertical 
+          className={`h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100 ${
+            isHorizontal ? 'rotate-90' : ''
+          }`} 
+        />
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -375,34 +401,20 @@ export default function Home() {
         </div>
       )}
 
-      {/* ASR Panel */}
-      {showASR && (
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="max-w-2xl mx-auto">
-            <ASRComponent
-              config={asrConfig}
-              onResult={handleASRResult}
-              onError={handleASRError}
-              onStatusChange={handleASRStatusChange}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Main Content */}
       <div 
         ref={containerRef}
-        className="flex h-[calc(100vh-80px)]" 
+        className="flex" 
         style={{ 
           height: (() => {
             let panelCount = 0;
             if (showStats) panelCount++;
             if (showDataSources) panelCount++;
-            if (showASR) panelCount++;
             
             const baseHeight = 80; // header height
+            const footerHeight = 40; // footer height
             const panelHeight = 80; // approximate height per panel
-            return `calc(100vh-${baseHeight + (panelCount * panelHeight)}px)`;
+            return `calc(100vh - ${baseHeight + footerHeight + (panelCount * panelHeight)}px)`;
           })()
         }}
       >
@@ -420,9 +432,9 @@ export default function Home() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-gray-50 min-w-0">
+        <div className="flex-1 bg-gray-50 min-w-0 flex flex-col">
           {/* Patient Details */}
-          <div className="h-full overflow-y-auto p-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
             <div className="max-w-5xl mx-auto">
               <PatientCard
                 record={records[selectedIndex]}
@@ -430,6 +442,26 @@ export default function Home() {
               />
             </div>
           </div>
+          
+          {/* ASR Panel - Bottom Right with adjustable height */}
+          {showASR && (
+            <div 
+              className="relative bg-white border-t border-gray-200 px-6 py-4 flex-shrink-0"
+              style={{ height: `${asrPanelHeight}px` }}
+            >
+              <DragHandle onMouseDown={handleAsrMouseDown} position="top" />
+              <div className="h-full overflow-y-auto">
+                <div className="max-w-2xl mx-auto">
+                  <ASRComponent
+                    config={asrConfig}
+                    onResult={handleASRResult}
+                    onError={handleASRError}
+                    onStatusChange={handleASRStatusChange}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -475,7 +507,7 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-2 z-10">
+      <div className="bg-white border-t border-gray-200 px-6 py-2">
         <div className="flex items-center justify-between text-sm text-gray-500">
           <div className="flex items-center space-x-4">
             <span>当前: 第 {selectedIndex + 1} 条记录</span>
